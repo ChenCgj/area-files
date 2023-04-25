@@ -672,11 +672,21 @@ void *downloadTask(void *arg) {
         goto downloadFail;
     }
     info->m_receiveFd = fd;
-    if ((info->m_saveFd = open(strrchr(info->m_fileInfo.m_fileName, '/') + 1, O_CREAT | O_EXCL | O_WRONLY)) < 0) {
+    char *saveFileName = (char *)malloc(MAX_LINE);
+    if (!saveFileName) {
+        ERR_INFO("malloc memory fail");
+        goto downloadFail;
+    }
+    strcpy(saveFileName, DOWNLOAD_DIR);
+    strcat(saveFileName, "/");
+    strcat(saveFileName, strrchr(info->m_fileInfo.m_fileName, '/') + 1);
+    if ((info->m_saveFd = open(saveFileName, O_CREAT | O_EXCL | O_WRONLY)) < 0) {
         ERR_INFO("create file fail: %s", strerror(errno));
+        free(saveFileName);
         close(fd);
         goto downloadFail;
     }
+    free(saveFileName);
     struct epoll_event e = {
         .data.ptr = info,
         .events = EPOLLIN
