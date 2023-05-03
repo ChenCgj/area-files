@@ -404,9 +404,16 @@ void dealUDPRequest(int fd) {
 
     if (strncmp(buf, "get", 4) == 0) {
         char *json = generateFileJsonStr(LOCAL_FILE_DIR);
-        int jsonlen = strlen(json);
-        if (sendto(fd, json, jsonlen, 0, (struct sockaddr *)&addr, len) != jsonlen) {
-            ERR_INFO("send json str fail: %s", strerror(errno));
+        if (json == NULL) {
+            const char *msg = "no files";
+            if (sendto(fd, msg, strlen(msg), 0, (struct sockaddr *)&addr, len) != strlen(msg)) {
+                ERR_INFO("send msg str fail: %s", strerror(errno));
+            }
+        } else {
+            int jsonlen = strlen(json);
+            if (sendto(fd, json, jsonlen, 0, (struct sockaddr *)&addr, len) != jsonlen) {
+                ERR_INFO("send json str fail: %s", strerror(errno));
+            }
         }
     } else {
         if (buf[0] == '{') {
@@ -508,6 +515,11 @@ bool boardcastAskFilesInfo() {
 }
 
 void showPersonalShareFilesInfo() {
+    if (!mkdirIfNotExist(LOCAL_FILE_DIR)) {
+        ERR_INFO("create share file fail: %s", strerror(errno));
+        printf("not files...\n");
+        return;
+    }
     struct FileList *list = getFilesInfo(LOCAL_FILE_DIR);
     if (list == NULL) {
         printf("not files...\n");
@@ -522,6 +534,10 @@ void showPersonalShareFilesInfo() {
 }
 
 bool downloadFile(const char *fileName) {
+    if (!mkdirIfNotExist(DOWNLOAD_DIR)) {
+        ERR_INFO("create download directory fail");
+        return false;
+    }
     struct DownloadInfo *info = (struct DownloadInfo *)calloc(1, sizeof(*info));
     for (int i = 0; datas[i] && !info->m_fileInfo.m_fileName; i++) {
         struct FileList *l = datas[i]->m_files;

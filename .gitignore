@@ -1,5 +1,9 @@
 
+.vscode
 
 experiment/build
 experiment/shareFiles
 experiment/downloads
+
+docs/submit
+docs/imgs/submit
