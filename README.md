@@ -47,15 +47,15 @@ make
    
       get information of shared files in network
    
-   3. list-all
+   3. `list-all`
    
       list the information got by `fresh`
    
-   4. download xxx
+   4. `download xxx`
    
       download the file xxx
 
-   5. exit
+   5. `exit`
 
       exit the program
 
