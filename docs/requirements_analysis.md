@@ -44,7 +44,7 @@ There are five main businesses:
 
 2. **Integrity**
 
-   The file a host received should be integrity, otherwist should report a error.
+   The file a host received should be integrity, otherwise should report a error.
 
 3. **Security**
 
@@ -74,6 +74,10 @@ There are five main businesses:
 
 - ***user right token***: The user right token is a right flag of files. If a file has a user right token, a user have to get the token so that he can access the file.
 
+- ***server token***: user right token used on server, get file from the server need this kind of token
+
+- ***LAN token***: user right token used on LAN, get file from other host in LAN need this kind of token
+
 - **host and client**: These two words are similar in many content, but client is used for the server and the host is used in the LAN for a host in the same LAN.
 
 - **server request**: Server request is means that the server require some source which is located in client. The client will periodically query the server to get the server requests, so that the client can send the resource to server.
@@ -82,6 +86,303 @@ There are five main businesses:
 
 - ***WAN***: Wide Area Network
 
+
+## Use Case
+
+**usecase1: register and login**
+
+![register_login](image/requirements_report/use_case1_register_login.svg)
+
+![register_process](image/requirements_report/use_case1_register_process.svg)
+
+![login_process](image/requirements_report/use_case1_login_process.svg)
+
+*description*:
+- register:
+  - description: register a new user in the server
+  - actor: user, server
+  - precondition: the user can access the server
+  - steps:
+    1. input the name
+    2. input the password
+    3. input the password again
+    4. submit form
+    5. server check whether the name is existed
+    6. server generates a uid and saves the account in database
+    7. register successfully
+  - exceptions:
+    - 3a: the second password is not as same as first, register failed
+    - 4a: network error, register failed
+    - 5a: the name has been occupied, register failed
+  - postcondition: user interface show register successfully and show the login interface with name/uid
+- login:
+  - description: login to the server
+  - actor: user, server
+  - precondition: the user can access the server
+  - steps:
+    1. input the name/uid
+    2. input the password
+    3. submit form
+    4. server check the password
+    5. login successfully
+  - exception:
+    - 3a: network error, login failed
+    - 4a: password error, login failed
+  - postcondition: user interface show login successfully and show the user name/uid on the main interface
+
+**usecase2: get file information and send file information**
+
+![get_send_file_info](image/requirements_report/use_case2_get_send_file_info.svg)
+
+![get_send_file_info_process](image/requirements_report/use_case2_get_send_file_info_process.svg)
+
+*description*:
+- get file information:
+  - description: update the shared file information list by requesting file information from other hosts and server
+  - actor: user
+  - precondition: for LAN file information, need to connect to the LAN, for server, need access the server
+  - steps:
+    1. user click/choose update file list
+    2. user wait the file information response
+    3. update the file list on the interface
+  - exception:
+    - 1a: network error, update failed
+    - 2a: not file information was received, update failed
+  - postcondition: update the file list
+- send file information:
+  - description: send file information to reply the file information request received before
+  - actor: user, server
+  - precondition: receive a file information request
+  - steps:
+    - for user:
+      1. get all information of files located in sharedFiles directory and packs them to json
+      2. send the json str to the sender
+    - for server:
+      1. get all information of files which received from other user, the meta data of files and packs them to json
+      2. send the json str to the sender
+  - exception:
+    - 1a: get information failed, send failed
+    - 2a: network error, send failed
+  - postcondition: send the json string of file information to sender
+
+**usecase3: list files**
+
+![list_files](image/requirements_report/use_case3_list_files.svg)
+
+![list_files](image/requirements_report/use_case3_list_file_process.svg)
+
+*description*:
+- list files information:
+  - description: list files information gotten from the server and hosts
+  - actor: user
+  - precondition: none
+  - steps:
+    1. user click/choose show the file list or user on the file list interface
+    2. list all files information
+  - exception: none
+  - postcondition: files information are on the surface
+
+**usecase4: download and send file**
+
+![download_send_file](image/requirements_report/use_case4_download_send_file.svg)
+
+![download_send_file_process](image/requirements_report/use_case4_download_send_file_process.svg)
+
+*description*:
+- download file:
+  - description: download file from host or server
+  - actor: user
+  - precondition: for file on host, connnection to LAN is required, for file on server, being able to access server is required
+  - steps:
+    1. user input the filename
+    2. check whether the filename exists in file information
+    3. check whether the user has the user right token asked by the file
+    4. ask the source to download the file
+    5. receive the file
+    6. show download finish message on user interface
+  - exception:
+    - 2a: the filename does not exist in file information, downlaod failed
+    - 3a: the user does not have the user right token asked by the file, download failed
+    - 4a: the source does not connect to the network, download failed
+    - 4b: network error, download failed
+    - 4c: souce check the user right token failed, download failed
+    - 5a: network error, download failed
+  - postcondiction: file required was downloaded in downloads directory
+- send file:
+  - description: send file to destination
+  - actor: user, server
+  - precondition: receive downlaod file request
+  - steps:
+    1. check if the filename exists
+       - for server: check whether the file is on disk, or has the meta data of file, if not have the file, ask the source to upload the file and wait it if possible
+       - for host: only check whether the file is on disk
+    2. check the user right token asked by the file and the user right token in the request
+    3. transmit the file to the destination
+  - exception:
+    - 1a: the file does not existed in the sharedFiles directory, send file failed, send error message
+    - 2a: check the user right token failed, send file failed, send error message
+    - 3a: network error, send file failed
+  - postcondition: file was transmitted to the destination
+
+**usecase5: upload file or file information**
+
+![upload_file_information](image/requirements_report/use_case5_upload_file_information.svg)
+
+![upload_file_process](image/requirements_report/use_case5_upload_file_process.svg)
+
+*description*:
+- upload file information:
+  - description: upload file information to server
+  - actor: user, server
+  - precondition: login to the server
+  - steps:
+    1. check wheter the user logs in
+    2. input the file(s) name
+    3. query whether the user want to upload file content
+    4. check whether the file exists in sharedFiles directory
+    5. submit form
+    6. server save the information and file content(if have)
+  - exception:
+    - 1a: ask user login first
+    - 4a: a file does not exists, send file information failed
+    - 5a: network error, send file information failed
+    - 6a: server error, save file information failed
+  - postcondition: file information was saved in server
+
+**usecase6: switch file sharing statu**
+
+![switch_file_sharing statu](image/requirements_report/use_case6_switch_shared.svg)
+
+![switch_file_sharing_process](image/requirements_report/use_case6_switch_process.svg)
+
+*description*:
+- make file be shared:
+  - description: make a file can be shared in LAN or server
+  - actor: user, server
+  - precondition: none
+  - steps:
+    1. input the filename
+    2. check whether the file exists and locates in correct path
+    3. switch the shared status
+    4. if register, update the information on server
+    5. show status of the file
+  - exception:
+    - 2a: file does not exist or does nost need to switch statu, switch failed
+    - 4a: the user does not login or network error, show message and retry when connect to the netword 
+  - postcondition: the sharing statu of file was changed
+
+**usecase7: create token**
+
+![create_token](image/requirements_report/use_case7_create_token.svg)
+
+![create_token_process](image/requirements_report/use_case7_create_token_process.svg)
+
+*description*:
+- create token
+  - description: create user right token to limit the access right of file
+  - actor: user, server
+  - precondition: for server token, need to login first
+  - steps:
+    1. input the token identifier
+    2. check the identifier does not exist
+    3. input the token password
+    4. query whether the token is valid in LAN or in server
+    5. if in server, server save the token
+  - exception:
+    - 2a: the identifier has existed, create failed
+    - 5a: network failed, create failed
+  - postcondition: create a new user right token
+
+**usecase8: destroy token**
+
+![destroy_token](image/requirements_report/use_case8_destroy_token.svg)
+
+![destroy_token_process](image/requirements_report/use_case8_destroy_token_process.svg)
+
+*description*:
+- destroy token
+  - description: destroy user right token
+  - actor: user, server
+  - precondition: for server token, need to login
+  - steps:
+    1. input the token identifier
+    2. check whether the token identifier exists
+    3. if the token is in server, update the token list in server
+    4. clean the token in all files
+    5. delete successfully
+  - exception:
+    - 2a: the token identifier does not exist, destroy failed
+    - 3a: network error, destroy failed
+  - postcondition: destroy the token
+
+**usecase9: apply or remove token on file**
+
+![apply_remove_token_on_file](image/requirements_report/use_case9_apply_remove_file_token.svg)
+
+![apply_token_process](image/requirements_report/use_case9_apply_token_process.svg)
+
+![remove_token_process](image/requirements_report/use_case9_remove_token_process.svg)
+
+*description*:
+- apply token
+  - description: apply token on file, limit the file access right by the token
+  - actor: user, server
+  - precondition: none
+  - steps:
+    1. input the token identiifer
+    2. input the filename
+    3. check whether the token exists and the file exists
+    4. check if the file has the token or not
+    5. add token for this file
+    6. if the file has been uploaded to the server, update the file information on server
+    7. show message about adding successfully on the interface
+  - exception:
+    - 3a: the token of the file does not exist, apply failed
+    - 4a: the token has been applied on the file, apply failed
+  - postconditions: the token has been applied to the file
+- remove token
+  - description: remove a token from a file
+  - actor: user, server
+  - precondition: none
+  - steps:
+    1. input the token identiifer
+    2. input the filename
+    3. check whether the token exists and the file exists
+    4. check if the file has the token or not
+    5. remove token from this file
+    6. if the file has been uploaded to the server, update the file information on server
+    7. show message about removing successfully on the interface
+  - exception:
+    - 3a: the token of the file does not exist, remove failed
+    - 4a: the token has not been applied on the file, remove failed
+  - postconditions:
+
+**usecase10: server request query and reply**
+
+![server_request_query_and_reply](image/requirements_report/use_case10_query_reply_server_request.svg)
+
+![server_request_query_reply_process](image/requirements_report/use_case10_server_request_process.svg)
+
+*description*:
+- server request query
+  - descritption: ask the server that is there any server request for the client
+  - actor: user, server
+  - precondition: login to the server, out of time limit since last query
+  - steps:
+    1. send the query to the server
+  - exceptions:
+    - 1a: network error
+  - postcondition: a query request was sent to the server
+- server request reply
+  - description: reply to the client's query with server request
+  - actor: user, server
+  - precondition: receive the server request requery
+  - steps:
+    1. search that whether there is some file request from other clients, if any, pack it in the reply
+    2. send the reply to the client
+  - exception:
+    - 2a: network error, send failed
+  - postconditions: a reply was sent to the client
 
 ## Functional Specification
 
