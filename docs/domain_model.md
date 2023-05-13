@@ -1,3 +1,3 @@
 # Domain Model for Area Files
 
-1. 
+![domain_model](image/domain_model/domain_model.svg)
