@@ -384,6 +384,10 @@ There are five main businesses:
     - 2a: network error, send failed
   - postconditions: a reply was sent to the client
 
+**system use cases**
+
+![system_use_cases](image/requirements_report/system_use_cases.svg)
+
 ## Functional Specification
 
 ### *About User*
