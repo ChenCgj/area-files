@@ -169,40 +169,40 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
 10. destroy token
     
-   send: `CMD token -d identifier`
+    send: `CMD token -d identifier`
 
-   reply: json string
+    reply: json string
 
-   ```json
-   {
-       "statu": int,
-       "msg": string
-   }
-   ```
+    ```json
+    {
+        "statu": int,
+        "msg": string
+    }
+    ```
 
 11. apply token
     
-   send: `CMD token -a token_identifier filename`
+    send: `CMD token -a token_identifier filename`
 
-   reply: json string
+    reply: json string
 
-   ```json
-   {
-       "statu": int,
-       "msg": string
-   }
-   ```
+    ```json
+    {
+        "statu": int,
+        "msg": string
+    }
+    ```
 
 12. remove token from file
     
-   send: `CMD token -r token_identifier filename`
+    send: `CMD token -r token_identifier filename`
 
-   ```json
-   {
-       "statu": int,
-       "msg": string
-   }
-   ```
+    ```json
+    {
+        "statu": int,
+        "msg": string
+    }
+    ```
 
 ### protocols between different hosts
 
@@ -246,9 +246,9 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```c
    struct MsgSendArea {
-       char AFSMsgType msgType;
-       char fileAttrib[];
-       char filedata[];
+       char AFSMsgType m_msgType;
+       char m_fileAttrib[];
+       char m_filedata[];
    }
    ```
 
@@ -339,10 +339,10 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```c
    struct MsgSendServer {
-       char AFSMsgType msgType;
-       char fileAttrib[];
-       char data[];
-   }
+       char AFSMsgType m_msgType;
+       char m_fileAttrib[];
+       char m_data[];
+   };
    ```
 
 5. upload file to server (tcp)
@@ -351,10 +351,10 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```c
    struct MsgUpload {
-        char AFSMsgType msgType;
-        char fileAttrib[];
-        char data[];
-   }
+        char AFSMsgType m_msgType;
+        char m_fileAttrib[];
+        char m_data[];
+   };
    ```
 
    reply: None
@@ -471,7 +471,75 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
 ## Data Structure Design
 
+**Token**
+
+A token contains two components: identifier and password. And there is a type field (server or LAN).
+
+```c++
+struct Token {
+    enum TokenType m_type;
+    std::string m_identifier;
+    std::string m_password;
+};
+```
+
+**FileInfo**
+
+For FileInfo, the struct describes the file's relative and tokens, last update time and so on.
+
+the last update time is FileInfo is different with the last modified time in file system, if you download a file from LAN, the last update time in FileInfo shouldn't be changed, but the last modified time of the file may be the time when you download the file.
+
+```c++
+struct FileInfo {
+    std::string m_path;     // relative path of the shared_path in configure    
+    std::string m_time;     // last update time
+    std::string m_size;     // size of the file
+    std::vector<Token> tokens;
+    std::string user;
+};
+```
+
+**User**
+
+A user may only use the software in LAN, who will not register on server, we should distinguish different hosts in LAN, a possible method is to record the ip, or, we also can show the host name.
+
+```c++
+struct UserLAN {
+    std::string m_hostName;
+    uint32_t ip;
+};
+```
+
+```c++
+struct User {
+    std::string uuid;
+    std::string name;
+};
+```
+
 ## Directory Structure Design
+
+- shared_path
+  - file1
+  - file2
+  - dir1
+    - file3
+    - file4
+  - dir2
+  - ...
+  - .info_dir
+    - file1_info
+    - file2_info
+    - dir1
+      - file3_info
+      - file4_info
+    - dir2
+    - ...
+
+- download_path
+  - file1
+  - file2
+  - ...
 
 ## Configures
 
@@ -480,7 +548,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 ```json
 {
     "download_path": string,
-    "share_path": string,
+    "shared_path": string,
     "server_ip": string,
     "server_port": int,
     "localhost_name": string,
@@ -489,3 +557,5 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 ```
 
 ## UML
+
+![UML](image/detail_design/uml.svg)
