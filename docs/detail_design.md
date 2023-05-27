@@ -12,6 +12,60 @@
 
 ## Protocol Design
 
+Token's json string:
+
+- when use to identify right:
+  
+  ```json
+  {
+      "id": string,
+      "password": string
+  }
+  ```
+
+- when only use to show tokens:
+  
+  ```json
+  {
+      "id": string,
+      "password": ""
+  }
+  ```
+
+User's json string:
+
+- Local user
+
+  ```json
+  {
+      "type": "LAN",
+      "hostname": string,
+      "ip": string
+  }
+  ```
+
+- Server user
+  
+  ```json
+  {
+      "type": "SERVER",
+      "uid": string,
+      "name": string
+  }
+  ```
+
+FileInfo's json string:
+
+```json
+{
+    "path": string,
+    "time": string,
+    "size": int,
+    "tokens": array of json string of Token,
+    "user": json string of User
+}
+```
+
 ### protocols between user interface and client core
 
 Format: `Type Action [Args ...]\0` (case sentensive)
@@ -103,7 +157,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
 6. upload file or information
 
-   send: `CMD upload [-info] filename`
+   send: `CMD upload [-info] filename` (if add `-info`, will only upload the FileInfo)
 
    reply: json string
 
@@ -130,7 +184,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
 7. make file unshared
 
-   send: `CMD unshare [-d] filename`
+   send: `CMD unshare [-d] filename` (if add `-d`, will delete the file on server)
 
    reply: json string
 
@@ -156,7 +210,9 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
 9. create token
     
-   send: `CMD token -c [-s [-u user]] identifier password` (-s for creating server token, and -u to specified the user)
+   send: `CMD token -c [-s [-u user]] identifier password` (`-s` for creating server token, and `-u` to specified the user)
+
+   **Notice**: the `user` shouldn't be the user self, and when specified the `user`, the token is only saved on host, which is sent to server only when try to download file.
 
    reply: json string
 
@@ -197,6 +253,8 @@ Format: `Type Action [Args ...]\0` (case sentensive)
     
     send: `CMD token -r token_identifier filename`
 
+    reply: json string
+
     ```json
     {
         "statu": int,
@@ -224,8 +282,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
        "type": "reply_area",
        "stamp": int,
        "restMsg": int,
-       "username": string,
-       "files": array of file info
+       "info": array of FileInfo
    }
    ```
 
@@ -236,7 +293,6 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```json
    {
        "type": "request_area",
-       "stamp": int,
        "filename": string,
        "tokens": array of token
    }
@@ -245,17 +301,17 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    reply: byte stream
 
    ```c
-   struct MsgSendArea {
-       char AFSMsgType m_msgType;
-       char m_fileAttrib[];
-       char m_filedata[];
+   struct AFSMsgSendArea {
+       char AFSMsgType m_msgType;   // "send_area"
+       char m_fileAttrib[];         // FileInfo
+       char m_filedata[];           // file data
    }
    ```
 
 ### protocols between server and host
 
 1. register (tcp)
-   
+
    send: json string
 
    ```json
@@ -272,8 +328,8 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    {
        "type": "register_re",
        "statu": int,
-       "msg": string,
-       "uuid": string
+       "uid": string,
+       "msg": string
    }
    ```
 
@@ -284,7 +340,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```json
    {
        "type": "login",
-       "name": string,
+       "name": string,          // also can be uid here
        "password": string
    }
    ```
@@ -295,8 +351,9 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    {
        "type": "login_re",
        "statu": int,
-       "msg": string,
-       "uuid": string
+       "uuid": string,
+       "cookie": string,
+       "msg": string
    }
    ```
 
@@ -308,7 +365,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    {
        "type": "query_server",
        "stamp": int,
-       "uuid": string
+       "cookie": string
    }
    ```
 
@@ -318,7 +375,9 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    {
        "type": "reply_query",
        "stamp": int,
-       "files": array of Fileinfo
+       "request_type": string,      // unused now
+       "request_id": int,
+       "info": array of Fileinfo
    }
    ```
 
@@ -329,9 +388,9 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```json
    {
        "type": "request_server",
-       "uuid": string,
-       "tokens": array of token,
-       "filename": string
+       "cookie": string,
+       "filename": string,
+       "tokens": array of token
    }
    ```
 
@@ -352,6 +411,8 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```c
    struct MsgUpload {
         char AFSMsgType m_msgType;
+        char requestId[];
+        char cookie[];
         char m_fileAttrib[];
         char m_data[];
    };
@@ -366,7 +427,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```json
    {
        "type": "query_server",
-       "uuid": string
+       "cookie": string
    }
    ```
 
@@ -375,12 +436,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```json
    {
        "type": "reply_server",
-       "files": [
-           {
-               "username": string,
-               "files": array of file info
-           }
-       ]
+       "info": array of FileInfo
    }
    ```
 
@@ -391,6 +447,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```json
    {
        "type": "create_token",
+       "cookie": string,
        "id": string,
        "password": password
    }
@@ -413,6 +470,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```json
    {
        "type": "destroy token",
+       "cookie": string,
        "id": string
    }
    ```
@@ -428,12 +486,13 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```
 
 9. apply server token
-    
+
    send: json string
 
    ```json
    {
        "type": "apply_token",
+       "cookie": string,
        "id": string,
        "filename": string
    }
@@ -450,10 +509,11 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```
 
 10. remove token from file
-    
+
     ```json
     {
         "type": "remove_token_from_file",
+        "cookie": string,
         "id": string,
         "filename": string
     }
@@ -470,6 +530,8 @@ Format: `Type Action [Args ...]\0` (case sentensive)
     ```
 
 ## Data Structure Design
+
+**Notice**: Don't use in code, but to describe the components.
 
 **Token**
 
@@ -495,7 +557,7 @@ struct FileInfo {
     std::string m_time;     // last update time
     std::string m_size;     // size of the file
     std::vector<Token> tokens;
-    std::string user;
+    User user;
 };
 ```
 
@@ -519,40 +581,96 @@ struct User {
 
 ## Directory Structure Design
 
-- shared_path
-  - file1
-  - file2
-  - dir1
-    - file3
-    - file4
-  - dir2
-  - ...
-  - .info_dir
-    - file1_info
-    - file2_info
-    - dir1
-      - file3_info
-      - file4_info
-    - dir2
-    - ...
+1. client/host
 
-- download_path
-  - file1
-  - file2
-  - ...
+   - shared_path
+     - file1
+     - file2
+     - dir1
+       - file3
+       - file4
+     - dir2
+     - ...
+     - .info_dir
+       - file1_info.json
+       - file2_info.json
+       - dir1
+         - file3_info.json
+         - file4_info.json
+       - dir2
+       - ...
+   
+   - download_path
+     - file1
+     - file2
+     - ...
+
+   - token_path
+     - token1_id.json
+     - token2_id.json
+     - ...
+
+2. server
+   
+   - file_save_path
+     - uid1
+       - file1
+       - dir1
+         - file2
+       - dir2
+       - ...
+       - .info_dir
+         - file1_info.json
+         - dir1
+           - file2_info.json
+         - dir2
+         - ...
+     - uid2
+     - uid3
+     - ...
+
+## Database Design
+
+For MySQL
+
+![ER](image/detail_design/ER.svg)
+
+For Redis
+
+| key               | value          |
+| ----------------- | -------------- |
+| cookie            | `{uid: xxxx}`  |
+| uid+token_id      | token_password |
+| server_request_id | server_request |
 
 ## Configures
 
 `Area Files` uses json to config the software, all possible option are bellow:
 
+configure for client/host
+
 ```json
 {
     "download_path": string,
     "shared_path": string,
+    "token_path": string,
     "server_ip": string,
     "server_port": int,
-    "localhost_name": string,
-    "client_port": int
+    "client_ip": string,
+    "client_port": int,
+    "localhost_name": string
+}
+```
+
+configure for server
+
+```json
+{
+    "file_save_path": string,
+    "mysql_ip": string,
+    "mysql_port": int,
+    "redis_ip": string,
+    "redis_port": int
 }
 ```
 
