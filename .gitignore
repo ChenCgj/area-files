@@ -7,3 +7,9 @@ experiment/downloads
 
 docs/image/**/*.dio
 docs/**/*.pdf
+
+client/AreaFilesClient/local.properties
+client/AreaFilesClient/.idea/dictionaries
+server/area_files_server/.idea
+server/area_files_server/*.iml
+server/area_files_server/target
