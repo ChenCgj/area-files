@@ -656,8 +656,11 @@ configure for client/host
     "token_path": string,
     "server_ip": string,
     "server_port": int,
-    "client_ip": string,
-    "client_port": int,
+    "host_ip": string,
+    "host_port": int,
+    "broadcast_ip": string,
+    "client_listen_ip": string,
+    "client_listen_port": int,
     "localhost_name": string
 }
 ```
@@ -666,6 +669,8 @@ configure for server
 
 ```json
 {
+    "server_ip": string,
+    "server_port": int,
     "file_save_path": string,
     "mysql_ip": string,
     "mysql_port": int,

@@ -1,0 +1,18 @@
+{
+    "download_path": "downloads",
+    "shared_path": "shared_files",
+    "token_path": "token_path",
+
+    "server_ip": "127.0.0.1",
+    "server_port": 11111,
+
+    "host_ip": "0.0.0.0",
+    "host_port": 11111,
+
+    "broadcast_ip": "255.255.255.255",
+
+    "client_listen_ip": "0.0.0.0",
+    "client_listen_port": 11114,
+
+    "localhost_name": "localhost"
+}

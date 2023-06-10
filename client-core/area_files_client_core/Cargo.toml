@@ -1,5 +1,5 @@
 [package]
-name = "area_files_server"
+name = "area_files_client_core"
 version = "0.1.0"
 edition = "2021"
 

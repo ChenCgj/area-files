@@ -1,15 +1,12 @@
 [package]
-name = "area_files_server"
+name = "area_files_lib"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
-area_files_lib = { path = "../../common/area_files_lib" }
-
 serde = "1.0.163"
 serde_json5 = "0.1.0"
 serde_derive = "1.0.163"
-tokio = {version = "1.28.2", features = ["net", "rt"]}
+tokio = {version = "1.28.2", features = ["net", "rt", "rt-multi-thread", "macros", "io-util"]}

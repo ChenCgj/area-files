@@ -10,6 +10,19 @@ docs/**/*.pdf
 
 client/AreaFilesClient/local.properties
 client/AreaFilesClient/.idea/dictionaries
+
 server/area_files_server/.idea
 server/area_files_server/*.iml
 server/area_files_server/target
+server/area_files_server/file_data
+
+client-core/area_files_client_core/.idea
+client-core/area_files_client_core/*.iml
+client-core/area_files_client_core/target
+client-core/area_files_client_core/downloads
+client-core/area_files_client_core/shared_files
+client-core/area_files_client_core/token_data
+
+common/area_files_lib/target
+common/area_files_lib/Cargo.lock
+

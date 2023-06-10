@@ -1,6 +1,4 @@
-use area_files_server::Server;
 
 fn main() {
-    let server = Server::new();
-    server.run();
+    area_files_server::run("config/config.json");
 }
