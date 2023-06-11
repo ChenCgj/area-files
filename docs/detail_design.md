@@ -573,7 +573,7 @@ struct UserLAN {
 ```
 
 ```c++
-struct User {
+struct UserWAN {
     std::string uuid;
     std::string name;
 };

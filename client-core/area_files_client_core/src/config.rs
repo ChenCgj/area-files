@@ -8,16 +8,16 @@ pub struct Config {
     token_path: String,
 
     server_ip: String,
-    server_port: i16,
+    server_port: u16,
 
     host_ip: String,
-    host_port: i16,
+    host_port: u16,
 
     broadcast_ip: String,
-    // broadcast_port: i16,
+    // broadcast_port: u16,
 
     client_listen_ip: String,
-    client_listen_port: i16,
+    client_listen_port: u16,
 
     localhost_name: String
 }
@@ -38,7 +38,7 @@ impl Config {
         &self.server_ip
     }
 
-    pub fn get_server_port(&self) -> i16 {
+    pub fn get_server_port(&self) -> u16 {
         self.server_port
     }
 
@@ -58,7 +58,7 @@ impl Config {
         &self.host_ip
     }
 
-    pub fn get_host_port(&self) -> i16 {
+    pub fn get_host_port(&self) -> u16 {
         self.host_port
     }
 
@@ -66,11 +66,15 @@ impl Config {
     //     self.broadcast_port
     // }
 
+    pub fn get_broadcast_ip(&self) -> &str {
+        &self.broadcast_ip
+    }
+
     pub fn get_client_listen_ip(&self) -> &str {
         &self.client_listen_ip
     }
 
-    pub fn get_client_listen_port(&self) -> i16 {
+    pub fn get_client_listen_port(&self) -> u16 {
         self.client_listen_port
     }
 

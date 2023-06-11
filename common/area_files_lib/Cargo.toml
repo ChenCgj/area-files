@@ -9,4 +9,6 @@ edition = "2021"
 serde = "1.0.163"
 serde_json5 = "0.1.0"
 serde_derive = "1.0.163"
+libc = "0.2.145"
+json = "0.12.4"
 tokio = {version = "1.28.2", features = ["net", "rt", "rt-multi-thread", "macros", "io-util"]}

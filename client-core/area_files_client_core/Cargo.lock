@@ -7,6 +7,7 @@ name = "area_files_client_core"
 version = "0.1.0"
 dependencies = [
  "area_files_lib",
+ "json",
  "serde",
  "serde_derive",
  "serde_json5",
@@ -17,6 +18,8 @@ dependencies = [
 name = "area_files_lib"
 version = "0.1.0"
 dependencies = [
+ "json",
+ "libc",
  "serde",
  "serde_derive",
  "serde_json5",
@@ -97,6 +100,12 @@ checksum = "ee512640fe35acbfb4bb779db6f0d80704c2cacfa2e39b601ef3e3f47d1ae4c7"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "json"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
 
 [[package]]
 name = "libc"

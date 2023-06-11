@@ -96,7 +96,7 @@ impl Server {
     pub fn add_tcp_server(
         &mut self,
         ip: &str,
-        port: i16,
+        port: u16,
         func: fn(TcpStream, SocketAddr, Handle)
     ) -> Result<(), String> {
         self.rt.block_on(async {
@@ -115,7 +115,7 @@ impl Server {
     pub fn add_udp_server(
         &mut self,
         ip: &str,
-        port: i16,
+        port: u16,
         func: fn(&[u8], SocketAddr, Handle)
     ) -> Result<(), String> {
         self.rt.block_on(async {
@@ -131,4 +131,14 @@ impl Server {
         Ok(())
     }
 
+    pub async fn udp_send(udp_socket: &UdpSocket, addr: &SocketAddr, buf: &[u8]) -> io::Result<()> {
+        match udp_socket.send_to(buf,addr).await {
+            Ok(size) if size == buf.len() => Ok(()),
+            Ok(size) => {
+                eprintln!("couldn't send a entire message: {}/{}", size, buf.len());
+                Err(io::Error::new(io::ErrorKind::Other, "udp package to large".to_string()))
+            }
+            Err(e) => Err(e)
+        }
+    }
 }
