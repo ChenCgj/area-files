@@ -139,7 +139,10 @@ pub fn get_all_info_impl(path: &std::path::Path, container: &mut Vec<FileInfo>) 
                         }
                     }
                 } else if file_type.is_dir() {
-                    get_all_info_impl(entry.path().as_path(), container);
+                    match get_all_info_impl(entry.path().as_path(), container) {
+                        Ok(_) => {},
+                        Err(e) => eprintln!("get info fail: {}", e.to_string())
+                    }
                 }
                 Err(e) => {
                     result = Err(e);
