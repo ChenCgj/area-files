@@ -275,6 +275,8 @@ async fn handle_client_command(reader: &mut BufReader<TcpStream>, buf: String) {
         handle_update_file_info(get_config(), reader.get_mut()).await;
     } else if cmd == "CMD list my" {
         handle_list_my(get_data().clone(), reader.get_mut()).await;
+    } else if cmd == "CMD list hosts" {
+        handle_list_other(get_data().clone(), reader.get_mut()).await;
     } else if cmd.len() > 12 && &cmd[..12] == "CMD download" {
         handle_download(&cmd, get_data().clone(), reader.get_mut(), &get_config()).await;
     } else if cmd.len() == 0 {

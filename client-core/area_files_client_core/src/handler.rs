@@ -253,10 +253,35 @@ pub async fn handle_update_file_info(config: &Config, stream: &mut TcpStream) {
 
 pub async fn handle_list_my(data: Arc<Mutex<AreaFilesData>>, stream: &mut TcpStream) {
     let d = serde_json5::to_string(&data.lock().await.my_files).unwrap();
-    match stream.write_all(d.as_bytes()).await {
-        Ok(_) => {},
+    let my_info = json::parse(&d).unwrap();
+    let mut reply_json = JsonValue::new_object();
+    reply_json["statu"] = JsonValue::from(0);
+    reply_json["info"] = my_info;
+    reply_json["msg"] = JsonValue::from("");
+    match send_tcp_packet(stream, &construct_tcp_packet(&reply_json)).await {
+        Ok(_) => {}
         Err(e) => eprintln!("response fail: {}", e.to_string())
     }
+}
+
+pub async fn handle_list_other(data: Arc<Mutex<AreaFilesData>>, stream: &mut TcpStream) {
+    let mut container = vec![];
+    for info in data.lock().await.other_files.iter() {
+        for i in info.1 {
+            container.push(i.clone());
+        }
+    }
+    let d = serde_json5::to_string(&container).unwrap();
+    let my_info = json::parse(&d).unwrap();
+    let mut reply_json = JsonValue::new_object();
+    reply_json["statu"] = JsonValue::from(0);
+    reply_json["info"] = my_info;
+    reply_json["msg"] = JsonValue::from("");
+    match send_tcp_packet(stream, &construct_tcp_packet(&reply_json)).await {
+        Ok(_) => {}
+        Err(e) => eprintln!("response fail: {}", e)
+    }
+
 }
 
 pub async fn handle_download(cmd: &str, data: Arc<Mutex<AreaFilesData>>, stream: &mut TcpStream, config: &Config) {
@@ -381,7 +406,8 @@ async fn handle_download_file(stream: &mut TcpStream, info: &FileInfo, config: &
     let mut curr_size = 0usize;
     let mut buf: Vec<u8> = vec![];
     buf.resize(4096, 0);
-    let filepath = std::path::Path::new(config.get_download_path()).join(&info.path).as_os_str().to_str().unwrap().to_string();
+    let filename = info.path.split("/").last().unwrap().to_string();
+    let filepath = std::path::Path::new(config.get_download_path()).join(&filename).as_os_str().to_str().unwrap().to_string();
     let mut output = fs::OpenOptions::new().create_new(true).write(true).truncate(false).open(&filepath);
     match output {
         Ok(ref mut output) => {
