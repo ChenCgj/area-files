@@ -6,7 +6,7 @@
     "server_ip": "127.0.0.1",
     "server_port": 11111,
 
-    "host_ip": "172.19.38.48",
+    "host_ip": "0.0.0.0",
     "host_port": 11111,
 
     "broadcast_ip": "255.255.255.255",

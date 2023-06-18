@@ -15,7 +15,7 @@
 Token's json string:
 
 - when use to identify right:
-  
+
   ```json
   {
       "id": string,
@@ -24,7 +24,7 @@ Token's json string:
   ```
 
 - when only use to show tokens:
-  
+
   ```json
   {
       "id": string,
@@ -38,19 +38,21 @@ User's json string:
 
   ```json
   {
-      "type": "LAN",
-      "hostname": string,
-      "ip": string
+      "UserLAN": {
+          "hostname": string,
+          "ip": string
+      }
   }
   ```
 
 - Server user
-  
+
   ```json
   {
-      "type": "SERVER",
-      "uid": string,
-      "name": string
+      "UserWAN": {
+          "uid": string,
+          "name": string
+      }
   }
   ```
 
@@ -59,16 +61,40 @@ FileInfo's json string:
 ```json
 {
     "path": string,
-    "time": string,
-    "size": int,
+    "time": uint64_t,
+    "size": uint,
     "tokens": array of json string of Token,
-    "user": json string of User
+    "user": json of User
+}
+```
+
+design for tcp packet:
+
+```c
+struct tcp_packet {
+    char msg_size[16];          // the size of the json str below
+    char json_msg[];            // the length of the jsonMsg is specified by the msgSize
+    char data[];                // file data or other, whose information are specified by the jsonMsg
+}
+```
+
+for error message:
+
+json_msg will be
+
+```json
+{
+    "msg_type": "error",
+    "statu": int,
+    "message": string
 }
 ```
 
 ### protocols between user interface and client core
 
-Format: `Type Action [Args ...]\0` (case sentensive)
+for tcp connect, before the reply json, there is a 16 bytes space specifies the length of the reply json
+
+Format: `Type Action [Args ...]\n` (case sentensive)
 
 1. register user
 
@@ -130,7 +156,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
 5. download file
 
-   send: `CMD download filename` (filename should be the releative path shown in FileInfo)
+   send: `CMD download ip filename` (filename should be the releative path shown in FileInfo)
 
    reply: json string
 
@@ -209,7 +235,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```
 
 9. create token
-    
+
    send: `CMD token -c [-s [-u user]] identifier password` (`-s` for creating server token, and `-u` to specified the user)
 
    **Notice**: the `user` shouldn't be the user self, and when specified the `user`, the token is only saved on host, which is sent to server only when try to download file.
@@ -224,7 +250,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    ```
 
 10. destroy token
-    
+
     send: `CMD token -d identifier`
 
     reply: json string
@@ -237,7 +263,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
     ```
 
 11. apply token
-    
+
     send: `CMD token -a token_identifier filename`
 
     reply: json string
@@ -250,7 +276,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
     ```
 
 12. remove token from file
-    
+
     send: `CMD token -r token_identifier filename`
 
     reply: json string
@@ -265,13 +291,13 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 ### protocols between different hosts
 
 1. get file information (udp broadcasting)
-   
+
    send: json string
 
    ```json
    {
-       "type": "query_area",
-       "stamp": int
+       "msg_type": "query_area",
+       "stamp": uint64_t
    }
    ```
 
@@ -279,77 +305,99 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```json
    {
-       "type": "reply_area",
-       "stamp": int,
+       "msg_type": "reply_area",
+       "stamp": uint64_t,
        "restMsg": int,
        "info": array of FileInfo
    }
    ```
 
 2. download file (tcp)
-   
-   send: json string
+
+   send: tcp packet as byte stream
+
+   json_msg:
 
    ```json
    {
-       "type": "request_area",
-       "filename": string,
+       "msg_type": "request_area",
+       "file_info": json of FileInfo,
        "tokens": array of token
    }
    ```
 
-   reply: byte stream
+   data: none
 
-   ```c
-   struct AFSMsgSendArea {
-       char AFSMsgType m_msgType;   // "send_area"
-       char m_fileAttrib[];         // FileInfo
-       char m_filedata[];           // file data
+   reply: tcp_packet as byte stream
+
+   json_msg:
+
+   ```json
+   {
+      "msg_type": "send_area",
+      "statu": int,
+      "message": "xxx",
+      "file_info": json of FileInfo
    }
    ```
+
+   data: file data
+
 
 ### protocols between server and host
 
 1. register (tcp)
 
-   send: json string
+   send: tcp packet as byte stream
+
+   json_msg:
 
    ```json
    {
-       "type": "register",
+       "msg_type": "register",
        "name": string,
        "password": string
    }
    ```
 
-   reply: json string
+   reply: tcp packet as byte stream
+
+   json_msg:
 
    ```json
    {
-       "type": "register_re",
+       "msg_type": "register_re",
        "statu": int,
        "uid": string,
        "msg": string
    }
    ```
 
+   data: none
+
 2. login (tcp)
-   
-   send: json string
+
+   send: tcp packet as byte stream
+
+   json_msg:
 
    ```json
    {
-       "type": "login",
+       "msg_type": "login",
        "name": string,          // also can be uid here
        "password": string
    }
    ```
 
-   reply: json string
+   data: none
+
+   reply: tcp packet as byte stream
+
+   json_msg:
 
    ```json
    {
-       "type": "login_re",
+       "msg_type": "login_re",
        "statu": int,
        "uuid": string,
        "cookie": string,
@@ -357,13 +405,15 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    }
    ```
 
+   data: none
+
 3. server request query (udp)
-   
+
    send: json string
 
    ```json
    {
-       "type": "query_server",
+       "msg_type": "query_server",
        "stamp": int,
        "cookie": string
    }
@@ -373,7 +423,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```json
    {
-       "type": "reply_query",
+       "msg_type": "reply_query",
        "stamp": int,
        "request_type": string,      // unused now
        "request_id": int,
@@ -381,52 +431,59 @@ Format: `Type Action [Args ...]\0` (case sentensive)
    }
    ```
 
-4. downlaod file from server (tcp)
-   
-   send: json string
+4. download file from server (tcp)
+
+   send: tcp packet as byte stream
 
    ```json
    {
-       "type": "request_server",
+       "msg_type": "request_server",
        "cookie": string,
        "filename": string,
        "tokens": array of token
    }
    ```
 
-   reply: byte stream
+   reply: tcp_packet as byte stream
 
-   ```c
-   struct MsgSendServer {
-       char AFSMsgType m_msgType;
-       char m_fileAttrib[];
-       char m_data[];
+   json_msg:
+
+   ```json
+   {
+       "msg_type"："send_server",
+       "file_info": json of FileInfo
    };
    ```
+
+   data: file data
+
 
 5. upload file to server (tcp)
-   
-   send: byte stream
 
-   ```c
-   struct MsgUpload {
-        char AFSMsgType m_msgType;
-        char requestId[];
-        char cookie[];
-        char m_fileAttrib[];
-        char m_data[];
+   send: tcp_packet as byte stream
+
+   json_msg:
+
+   ```json
+   {
+        "msg_type": "upload_file",
+        "request_id": uint,
+        "cookie": "xxx",
+        "file_info": json of FileInfo
    };
    ```
+
+   data: file data
 
    reply: None
 
 6. get file information (tcp)
-   
+
    send: json string
 
    ```json
    {
-       "type": "query_server",
+       "msg_type": "query_server",
        "cookie": string
    }
    ```
@@ -435,18 +492,18 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```json
    {
-       "type": "reply_server",
+       "msg_type": "reply_server",
        "info": array of FileInfo
    }
    ```
 
 7. create server token (tcp)
-   
+
    send: json string
 
    ```json
    {
-       "type": "create_token",
+       "msg_type": "create_token",
        "cookie": string,
        "id": string,
        "password": password
@@ -457,7 +514,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```json
    {
-       "type": "create_token_reply",
+       "msg_type": "create_token_reply",
        "statu": int,
        "msg": string
    }
@@ -469,7 +526,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```json
    {
-       "type": "destroy token",
+       "msg_type": "destroy token",
        "cookie": string,
        "id": string
    }
@@ -479,7 +536,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```json
    {
-       "type": "destroy_token_reply",
+       "msg_type": "destroy_token_reply",
        "statu": int,
        "msg": string
    }
@@ -491,7 +548,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```json
    {
-       "type": "apply_token",
+       "msg_type": "apply_token",
        "cookie": string,
        "id": string,
        "filename": string
@@ -502,7 +559,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
    ```json
    {
-       "type": "apply_token_reply",
+       "msg_type": "apply_token_reply",
        "statu": int,
        "msg": string
    }
@@ -512,7 +569,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
     ```json
     {
-        "type": "remove_token_from_file",
+        "msg_type": "remove_token_from_file",
         "cookie": string,
         "id": string,
         "filename": string
@@ -523,7 +580,7 @@ Format: `Type Action [Args ...]\0` (case sentensive)
 
     ```json
     {
-        "type": "remove_token_reply",
+        "msg_type": "remove_token_reply",
         "statu": int,
         "msg": string
     }
@@ -553,7 +610,7 @@ the last update time is FileInfo is different with the last modified time in fil
 
 ```c++
 struct FileInfo {
-    std::string m_path;     // relative path of the shared_path in configure    
+    std::string m_path;     // relative path of the shared_path in configure
     std::string m_time;     // last update time
     std::string m_size;     // size of the file
     std::vector<Token> tokens;
@@ -599,7 +656,7 @@ struct UserWAN {
          - file4_info.json
        - dir2
        - ...
-   
+
    - download_path
      - file1
      - file2
@@ -611,7 +668,7 @@ struct UserWAN {
      - ...
 
 2. server
-   
+
    - file_save_path
      - uid1
        - file1

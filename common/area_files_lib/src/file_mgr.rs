@@ -2,7 +2,8 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::io::{Seek, SeekFrom, Write};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
+use json::JsonValue;
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
 use crate::user::User;
@@ -10,10 +11,43 @@ use crate::user::User;
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct FileInfo {
     pub path: String,
-    pub time: SystemTime,
+    pub time: u64,
     pub size: u64,
     pub tokens: Vec<String>,
     pub user: User
+}
+
+impl FileInfo {
+    pub fn from_json(json_v: &JsonValue) -> Result<FileInfo, String> {
+        if !json_v.has_key("path") || json_v["path"].as_str() == None
+            || !json_v.has_key("time") || json_v["time"].as_u64() == None
+            || !json_v.has_key("size") || json_v["size"].as_u64() == None
+            || !json_v.has_key("user") || User::from_json(&json_v["user"]).is_err()
+            || !json_v.has_key("tokens") || !json_v["tokens"].is_array() {
+
+            return Err("invalid json for FileInfo".to_string());
+        }
+
+        let mut tokens = vec![];
+        let json_arr;
+        match json_v["tokens"] {
+            JsonValue::Array(ref arr) => json_arr = arr,
+            _ => return Err("invalid json for FileInfo: no tokens array".to_string())
+        }
+        for value in json_arr {
+            if !value.is_string() {
+                return Err("invalid json for FileInfo: invalid tokens identifier".to_string());
+            }
+            tokens.push(value.as_str().unwrap().to_string());
+        }
+        Ok(FileInfo {
+            path: json_v["path"].as_str().unwrap().to_string(),
+            time: json_v["time"].as_u64().unwrap(),
+            size: json_v["size"].as_u64().unwrap(),
+            tokens: tokens,
+            user: User::from_json(&json_v["user"]).unwrap()
+        })
+    }
 }
 
 fn get_file_size(path: &str) -> io::Result<u64> {
@@ -27,7 +61,8 @@ pub fn get_info_from_file(ppath: &str, path: &str, user: &User) -> io::Result<Fi
     let data = fs::File::open(&full_path)?.metadata()?;
     Ok(FileInfo {
         path: path.replace(std::path::MAIN_SEPARATOR, "/"),
-        time: data.modified().unwrap_or(SystemTime::now()),
+        // if get time fail, it will be set to zero
+        time: data.modified().unwrap_or(SystemTime::now()).duration_since(SystemTime::UNIX_EPOCH).unwrap_or(Duration::from_secs(0)).as_secs(),
         size: get_file_size(&full_path)?,
         tokens: vec![],
         user: user.clone()

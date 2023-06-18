@@ -1,5 +1,7 @@
 use std::{fs};
+use std::net::Ipv4Addr;
 use serde_derive::Deserialize;
+use area_files_lib::util::get_local_ip;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -23,10 +25,39 @@ pub struct Config {
 }
 
 impl Config {
+    fn check(&mut self) -> Result<(), String> {
+        if let Ok(hostip) = self.host_ip.parse::<Ipv4Addr>() {
+            if hostip == Ipv4Addr::new(0, 0, 0, 0) {
+                let ips = get_local_ip();
+                if ips.is_empty() {
+                    return Err("no available ip".to_string())
+                }
+                self.host_ip = ips[0].to_string();
+            }
+        } else {
+            return Err("incorrect host ip".to_string())
+        }
+        if let Err(_) = self.server_ip.parse::<Ipv4Addr>() {
+            return Err("invalid server ip".to_string())
+        }
+        if let Err(_) = self.client_listen_ip.parse::<Ipv4Addr>() {
+            return Err("invalid client listen ip".to_string())
+        }
+        if let Err(_) = self.broadcast_ip.parse::<Ipv4Addr>() {
+            return Err("invalid broadcast ip".to_string())
+        }
+        Ok(())
+    }
     pub fn load_config(path: &str) -> Result<Config, String> {
         if let Ok(json_str) = fs::read_to_string(path) {
-            match serde_json5::from_str(&json_str) {
-                Ok(config) => Ok(config),
+            match serde_json5::from_str::<Config>(&json_str) {
+                Ok(mut config) => {
+                    // check the config
+                    match config.check() {
+                        Ok(_) => Ok(config),
+                        Err(e) => Err(e)
+                    }
+                },
                 Err(e) => Err(format!("couldn't parse configure from {}: {}", path, e))
             }
         } else {

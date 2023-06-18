@@ -1,14 +1,20 @@
+use std::error::Error;
+use std::io::ErrorKind;
 use std::net::{SocketAddr};
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpStream};
-use tokio::runtime::Handle;
+use tokio::runtime::{Handle, Runtime};
 use tokio::sync::Mutex;
 use config::Config;
 use data::AreaFilesData;
 use json;
+use json::JsonValue;
+use json::short::Short;
 
-use area_files_lib::{Server};
+use area_files_lib::{Server, User};
+use area_files_lib::file_mgr::{gen_info_for, get_all_info};
+use area_files_lib::util::construct_tcp_packet;
 
 mod config;
 mod data;
@@ -27,6 +33,55 @@ pub fn get_data() -> &'static Arc<Mutex<AreaFilesData>> {
     unsafe { GLOBAL_DATA.as_ref().unwrap() }
 }
 
+pub fn prepare_dir(config: &Config, data: &Arc<Mutex<AreaFilesData>>) -> Result<(), String> {
+    let share_dir = config.get_shared_path();
+    let download_dir = config.get_download_path();
+    let info_dir;
+    match std::path::Path::new(share_dir).join(".info_dir").to_str() {
+        Some(p) => info_dir = p.to_string(),
+        None => return Err("get info dir path fail".to_string())
+    }
+    if let Err(e) = std::fs::create_dir(share_dir) {
+        if e.kind() != ErrorKind::AlreadyExists {
+            return Err(format!("create shared dir fail: {}", e))
+        }
+    }
+    if let Err(e) = std::fs::create_dir(download_dir) {
+        if e.kind() != ErrorKind::AlreadyExists {
+            return Err(format!("create download dir fail: {}", e))
+        }
+    }
+    if let Err(e) = std::fs::create_dir(info_dir) {
+        if e.kind() != ErrorKind::AlreadyExists {
+            return Err(format!("create info dir fail: {}", e))
+        }
+    }
+    if let Err(e) = gen_info_for(
+        share_dir,
+        true,
+        &User::UserLAN {
+            host_name: config.get_localhost_name().to_string(),
+            ip: config.get_host_ip().to_string()
+        }) {
+
+        return Err(format!("gen info fail: {}", e))
+    }
+    match data.try_lock() {
+        Ok(mut d) => {
+            let info;
+            match get_all_info(share_dir) {
+                Ok(i) => info = i,
+                Err(e) => return Err(format!("get my file info fail: {}", e))
+            }
+            d.update_my_files(&info);
+        }
+        Err(e) => {
+            return Err(format!("get the data lock fail: {}", e));
+        }
+    }
+    Ok(())
+}
+
 pub fn run(config_path: &str) {
     match Config::load_config(config_path) {
         Ok(config) => unsafe { GLOBAL_CONFIG = Some(config); },
@@ -41,6 +96,20 @@ pub fn run(config_path: &str) {
     }
 
     let config = get_config();
+
+    if let Err(e) = prepare_dir(config, get_data()) {
+        eprintln!("init fail: {}", e);
+        return;
+    }
+
+    // print info
+    {
+        println!("host ip: {}", config.get_host_ip());
+        println!("server (ip:port): {}:{}", config.get_server_ip(), config.get_server_port());
+        println!("broadcast ip: {}", config.get_broadcast_ip());
+        println!("listen port: {}", config.get_host_port());
+        println!("client listen (ip:port): {}:{}", config.get_client_listen_ip(), config.get_client_listen_port())
+    }
 
     let mut server: Server;
     match Server::new() {
@@ -82,9 +151,67 @@ pub fn tcp_handler(stream: TcpStream, addr: SocketAddr, handle: Handle) {
     println!("tcp: {} connect", addr);
     handle.spawn(async move {
         let mut stream = stream;
-        match stream.write(b"helloworld").await {
-            Ok(_) => {}
-            Err(e) => eprintln!("tcp error: {:?}", e)
+        let mut json_str_size_buf = Vec::from([0u8; 16]);
+        if let Err(e) = stream.read_exact(&mut json_str_size_buf).await {
+            eprintln!("read from the stream fail: {}", e);
+            return;
+        }
+        let mut json_reply = JsonValue::new_object();
+        json_reply["msg_type"] = JsonValue::from("error");
+        json_reply["statu"] = JsonValue::from(-1);
+        json_reply["message"] = JsonValue::from("invalid message");
+
+        let mut json_str_size;
+        match String::from_utf8_lossy(&json_str_size_buf).parse::<u32>() {
+            Ok(s) => json_str_size = s,
+            Err(e) => {
+                match stream.write_all(&construct_tcp_packet(&json_reply)).await {
+                    Ok(_) => {}
+                    Err(e) => eprintln!("response fail: {}", e)
+                }
+                return;
+            }
+        }
+
+        let mut json_buf = Vec::new();
+        // json_buf.reserve(json_str_size as usize);
+        json_buf.resize(json_str_size as usize, 0);
+
+        if let Err(e) = stream.read_exact(&mut json_buf).await {
+            match stream.write_all(&construct_tcp_packet(&json_reply)).await {
+                Ok(_) => {}
+                Err(e) => eprintln!("response fail: {}", e)
+            }
+            return;
+        }
+
+        let json_str = String::from_utf8_lossy(&json_buf);
+        let mut json_data = JsonValue::Null;
+        match json::parse(&json_str) {
+            Ok(d) => json_data = d,
+            Err(_) => {
+                match stream.write_all(&construct_tcp_packet(&json_reply)).await {
+                    Ok(_) => {}
+                    Err(e) => eprintln!("response fail: {}", e)
+                }
+            }
+        }
+
+        if !json_data.has_key("msg_type") {
+            match stream.write_all(&construct_tcp_packet(&json_reply)).await {
+                Ok(_) => {}
+                Err(e) => eprintln!("response fail: {}", e)
+            }
+        }
+
+        if json_data["msg_type"].as_str().unwrap() == "request_area" {
+            handle_request_area(&json_data, &mut stream, get_config(), get_data().clone()).await;
+        } else {
+            json_reply["message"] = JsonValue::from(format!("unknown message type: {}", json_data["msg_type"]));
+            match stream.write_all(&construct_tcp_packet(&json_reply)).await {
+                Ok(_) => {}
+                Err(e) => eprintln!("response fail: {}", e)
+            }
         }
     });
 }
@@ -106,7 +233,7 @@ pub fn udp_handler(buf: &[u8], addr: SocketAddr, handle: Handle) {
     }
     match &json_message["msg_type"] {
         t if t == "query_area" => handle_query_area(&handle, addr, get_config()),
-        t if t == "reply_area" => handle_reply_area(&handle, &message, get_data().clone()),
+        t if t == "reply_area" => handle_reply_area(&handle, addr, get_config(), &message, get_data().clone()),
         _ => {
             eprintln!("unknown message type: {}", json_message)
         }
@@ -148,8 +275,12 @@ async fn handle_client_command(reader: &mut BufReader<TcpStream>, buf: String) {
         handle_update_file_info(get_config(), reader.get_mut()).await;
     } else if cmd == "CMD list my" {
         handle_list_my(get_data().clone(), reader.get_mut()).await;
+    } else if cmd.len() > 12 && &cmd[..12] == "CMD download" {
+        handle_download(&cmd, get_data().clone(), reader.get_mut(), &get_config()).await;
+    } else if cmd.len() == 0 {
+        // nothing here
     } else {
-        match reader.get_mut().write_all(format!("unknown command: {}\n", cmd).as_bytes()).await {
+        match reader.get_mut().write_all(format!("unknown command: {}", cmd).as_bytes()).await {
             Ok(_) => {},
             Err(e) => eprintln!("response fail: {}", e.to_string())
         }

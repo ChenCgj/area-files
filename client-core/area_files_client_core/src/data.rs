@@ -21,9 +21,6 @@ impl AreaFilesData {
 
     pub fn update_other_files(&mut self, user: &User, info: &Vec<FileInfo>) {
         let mut info = info.clone();
-        for info in info.iter_mut() {
-            info.user = user.clone();
-        }
         *self.other_files.entry(user.clone()).or_insert(vec![]) = info;
     }
 }
