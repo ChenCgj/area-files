@@ -249,7 +249,6 @@ pub fn client_handler(stream: TcpStream, _addr: SocketAddr, handle: Handle) {
             let mut buf = String::new();
             buf.reserve(4096);
             match reader.read_line(&mut buf).await {
-                Ok(0) => { println!("client disconnect"); break },
                 Ok(size) => {
                     if size >= buf.capacity() {
                         match reader.get_mut().write_all("cmd too long".as_bytes()).await {

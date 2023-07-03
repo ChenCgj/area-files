@@ -24,6 +24,7 @@ kotlin {
                 api(compose.foundation)
                 api(compose.material)
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
+                implementation("androidx.compose.material:material-icons-extended:${extra["compose.version"]}")
             }
         }
         val commonTest by getting {
